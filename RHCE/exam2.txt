@@ -1,26 +1,26 @@
 Q1. Install and configure ansible control node as follows:
 * install the required package
-* create static inventory file called /home/van/ansible/inventory
+* create static inventory file called /home/student/ansible/inventory
 
-    - node1 is a member of the dev host group
-    - node2 is a member of the test host groups
-    - node3 and node4 are members of the prod host group
-    - node5 is a member of the balancers host groups
+    - servera is a member of the dev host group
+    - serverb is a member of the test host groups
+    - serverc and serverd are members of the prod host group
+    - servere is a member of the balancers host groups
     - the prod group is a member of the webservers host group
 * create a configuration file called ansible.cfg as follows:
-    - the host inventory file should be defined as /home/van/ansible/inventory
+    - the host inventory file should be defined as /home/student/ansible/inventory
     - the location of roles used in playbooks should be as /home/student/ansible/roles
-    - the localtion of collections used in playbooks should be created as /home/van/ansible/collections
+    - the localtion of collections used in playbooks should be created as /home/student/ansible/collections
 
 Q2. create a playbook adhoc.yml for configuring repository on all nodes
 
 Q3. Install the collections:
-* create a directory collections under /home/van/ansible
+* create a directory collections under /home/student/ansible
 * using URL http:// to install ansible.posix collection under collections directory
 * using URL http:// to install community.general collection under collections directory
 
 Q4. Install the roles
-* create directory roles under /home/van/ansible
+* create directory roles under /home/student/ansible
 * create playbook called requirements.yml under roles directory and download the given roles under it using galaxy command
 * role name should be balancer and download it using this URL https://github.com/bbatsche/Ansible-PHP-Site-Role.git
 * role name should be phpinfo and download it using this URL https://github.com/githubixx/ansible-role-haproxy.git
@@ -40,7 +40,7 @@ Q6. Create a playbook called roles.yml and it should run balancer and phpinfo ro
 Q7.2 Create a playbook called selinux.yml and use systemroles
 * set selinux mode as enforcing on all managed nodes
 
-Q8. Create a playbook called /home/van/ansible/packages.yml that:
+Q8. Create a playbook called /home/student/ansible/packages.yml that:
 Install packages on multiple groups:
 * install php and mariadb package on dev, test and prod group
 * install "RPM Development Tools" group package on dev group
@@ -83,11 +83,11 @@ finally /etc/myhosts should be like as below:
     127.0.0.1   localhost localhost.localdomain localhost4 localhost4.localdomain4
     ::1         localhost localhost.localdomain localhost6 localhost6.localdomain6
 
-    192.168.124.2	node1	node1.9	node1.9.local
-    192.168.124.3	node2	node2.9	node2.9.local
-    192.168.124.4	node3	node3.9	node3.9.local
-    192.168.124.5	node4	node4.9	node4.9.local
-    192.168.124.6	node5	node5.9	node5.9.local
+    192.168.122.11	servera	servera.lab.example	servera.lab.example.com
+    192.168.122.12	serverb	serverb.lab.example	serverb.lab.example.com
+    192.168.122.13	serverc	serverc.lab.example	serverc.lab.example.com
+    192.168.122.14	serverd	serverd.lab.example	serverd.lab.example.com
+    192.168.122.15	servere	servere.lab.example	servere.lab.example.com
 
 * the playbook name hosts.yml and run it on dev group
 
@@ -119,4 +119,3 @@ Q17. Create a logical volume named data of 1500M size from volume group "researc
 * if logical volume is created then assing file-system as "ext4"
 * do not perform any mounting for this lv
 * the playbook name lvm.yml run on all nodes
-

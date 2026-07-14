@@ -4,17 +4,17 @@
 
 ```ini
 [dev]
-node1
+servera
 
 [test]
-node2
+serverb
 
 [prod]
-node3
-node4
+serverc
+serverd
 
 [balancers]
-node5
+servere
 
 [webservers:children]
 prod

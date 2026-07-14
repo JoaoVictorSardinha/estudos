@@ -78,7 +78,7 @@ sudo dnf install -y rhel-system-roles
 
 ```bash
 # Configuration to meet the requirements for exam lab
-cd /home/van/ansible/roles/
+cd /home/student/ansible/roles/
 
 git clone https://github.com/bbatsche/Ansible-Nginx-Passenger-Role.git
 

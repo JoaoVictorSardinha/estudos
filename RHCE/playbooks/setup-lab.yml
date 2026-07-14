@@ -1,0 +1,25 @@
+---
+- name: Configure Ansible control node
+  hosts: ansible
+  become: true
+  vars:
+    setup_lab_stage: controller
+  roles:
+    - setup-lab
+
+- name: Configure managed nodes
+  hosts: lab_hosts
+  become: true
+  vars:
+    setup_lab_stage: nodes
+  roles:
+    - setup-lab
+
+- name: Post provisioning tasks
+  hosts: lab
+  gather_facts: false
+  vars:
+    setup_lab_stage: post-install
+  roles:
+    - setup-lab
+...

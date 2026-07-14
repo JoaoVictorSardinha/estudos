@@ -1,0 +1,5 @@
+---
+- name: Display lab summary
+  debug:
+    msg: "Host {{ inventory_hostname }} pronto para exercícios RHCE."
+...

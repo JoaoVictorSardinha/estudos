@@ -3,15 +3,14 @@ LAB_MACHINES = [
   { name: "servera", hostname: "servera.lab.example.com", ip: "192.168.122.11" },
   { name: "serverb", hostname: "serverb.lab.example.com", ip: "192.168.122.12" },
   { name: "serverc", hostname: "serverc.lab.example.com", ip: "192.168.122.13" },
-  { name: "serverd", hostname: "serverd.lab.example.com", ip: "192.168.122.14" },
-  { name: "servere", hostname: "servere.lab.example.com", ip: "192.168.122.15" }
+  { name: "serverd", hostname: "serverd.lab.example.com", ip: "192.168.122.14", lvm_disk_size: "2G" },
+  { name: "servere", hostname: "servere.lab.example.com", ip: "192.168.122.15", lvm_disk_size: "1G" }
 ].freeze
 LAB_HOSTS = LAB_MACHINES.map do |machine|
   short_hostname = machine[:hostname].split(".").first
 
   "#{machine[:ip]} #{short_hostname} #{machine[:hostname]}"
 end.join("\n")
-
 RHEL_ISO_SOURCE = ENV["ISO"].to_s
 RH_USER = ENV["RH_USER"].to_s
 RH_TOKEN = ENV["RH_TOKEN"].to_s
@@ -20,6 +19,8 @@ RHSM_ACTIVATION_KEY = ENV["RHSM_ACTIVATION_KEY"].to_s
 
 Vagrant.configure("2") do |config|
   config.ssh.insert_key = false
+  config.ssh.keys_only = true
+  config.ssh.forward_agent = false
   config.vm.box_check_update = false
   config.vm.box_version = "1.0.0"
   config.vm.boot_timeout = 600
@@ -47,6 +48,14 @@ Vagrant.configure("2") do |config|
         libvirt.management_network_name = "vagrant-libvirt"
         libvirt.management_network_address = "192.168.121.0/24"
         libvirt.management_network_keep = true
+
+        if machine[:lvm_disk_size]
+          libvirt.storage :file,
+                          size: machine[:lvm_disk_size],
+                          device: "vdb",
+                          bus: "virtio",
+                          type: "qcow2"
+        end
       end
 
       node.vm.provision :shell,
@@ -66,20 +75,6 @@ Vagrant.configure("2") do |config|
         # Sudo sem senha
         echo 'student ALL=(ALL) NOPASSWD: ALL' > /etc/sudoers.d/student
         chmod 440 /etc/sudoers.d/student
-
-        # Copia chave SSH do usuário vagrant
-        mkdir -p /home/student/.ssh
-
-        if [ -f /home/vagrant/.ssh/authorized_keys ]; then
-          cp /home/vagrant/.ssh/authorized_keys /home/student/.ssh/
-        fi
-
-        chown -R student:student /home/student/.ssh
-        chmod 700 /home/student/.ssh
-
-        if [ -f /home/student/.ssh/authorized_keys ]; then
-          chmod 600 /home/student/.ssh/authorized_keys
-        fi
 
         sed -i '/ lab-managed$/d' /etc/hosts
         while IFS= read -r host_entry; do
@@ -155,10 +150,16 @@ Vagrant.configure("2") do |config|
             subscription-manager config --rhsm.manage_repos=1
           fi
 
+          if sudo subscription-manager identity >/dev/null 2>&1; then
+            sudo subscription-manager repos --enable ansible-automation-platform-2.7-for-rhel-9-x86_64-rpms
+          fi
+
           dnf install -y \
             ansible-core \
             git \
+            rhel-system-roles \
             sshpass \
+            vim \
             vsftpd \
             python3-libselinux \
             python3-libsemanage
@@ -175,53 +176,35 @@ Vagrant.configure("2") do |config|
             firewall-cmd --reload
           fi
 
-          mkdir -p /home/student/ansible/{roles,collections}
+          mkdir -p /home/student/ansible/{roles,collections,playbooks}
+
+          if [ -d /usr/share/ansible/collections/ansible_collections/redhat/rhel_system_roles ]; then
+            mkdir -p /home/student/ansible/collections/ansible_collections/redhat
+            rm -rf /home/student/ansible/collections/ansible_collections/redhat/rhel_system_roles
+            cp -a /usr/share/ansible/collections/ansible_collections/redhat/rhel_system_roles \
+              /home/student/ansible/collections/ansible_collections/redhat/rhel_system_roles
+          fi
+
+          cp -f /vagrant/playbooks/master.yml /home/student/ansible/playbooks/master.yml
+          cp -f /vagrant/playbooks/setup-lab.yml /home/student/ansible/playbooks/setup-lab.yml
+
+          rm -rf /home/student/ansible/roles/setup-lab
+          cp -a /vagrant/roles/setup-lab /home/student/ansible/roles/setup-lab
 
           chown -R student:student /home/student/ansible
         SHELL
 
-        if ENV["RUN_ANSIBLE_LOCAL"] == "1"
-          node.vm.provision :ansible_local do |ansible|
-            ansible.compatibility_mode = "2.0"
-            ansible.config_file = "/vagrant/ansible.cfg"
-            ansible.inventory_path = "/vagrant/inventory"
-            ansible.limit = "all"
-            ansible.playbook = "/vagrant/playbooks/master.yml"
-            ansible.install = false
-          end
-        end
       else
         node.vm.provision :shell, inline: <<-'SHELL'
           set -euo pipefail
 
-          # cat > /etc/yum.repos.d/rhel9-iso.repo <<'EOF'
-          # [rhel9-baseos-iso]
-          # name=RHEL 9 BaseOS ISO
-          # baseurl=ftp://192.168.122.10/rhel9/BaseOS
-          # enabled=1
-          # gpgcheck=0
-          #
-          # [rhel9-appstream-iso]
-          # name=RHEL 9 AppStream ISO
-          # baseurl=ftp://192.168.122.10/rhel9/AppStream
-          # enabled=1
-          # gpgcheck=0
-          # EOF
-
-          # for attempt in {1..60}; do
-          #   if dnf -q makecache --disablerepo='*' --enablerepo='rhel9-*-iso'; then
-          #     break
-          #   fi
-          #
-          #   if [ "${attempt}" -eq 60 ]; then
-          #     echo "Timed out waiting for the RHEL ISO FTP repository on ansible." >&2
-          #     exit 1
-          #   fi
-          #
-          #   sleep 10
-          # done
+          if command -v subscription-manager >/dev/null 2>&1 && subscription-manager identity >/dev/null 2>&1; then
+            subscription-manager unregister
+            subscription-manager clean
+          fi
         SHELL
       end
+
     end
   end
 end

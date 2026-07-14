@@ -22,6 +22,29 @@ VIRSH := virsh -c qemu:///system
 ANSIBLE_DOMAIN := RHCE_ansible
 ISO_TARGET_DEV := hdc
 REQUIRED_START_ENV := ISO
+CALLING_USER_HOME := $(shell getent passwd "$${SUDO_USER:-$$(id -un)}" | cut -d: -f6)
+
+define zshrc_var
+$(shell /usr/bin/zsh -fc 'source "$(CALLING_USER_HOME)/.zshrc" >/dev/null 2>&1; print -r -- "$$$(1)"' 2>/dev/null)
+endef
+
+ifndef ISO
+ISO := $(call zshrc_var,ISO)
+endif
+ifndef RH_USER
+RH_USER := $(call zshrc_var,RH_USER)
+endif
+ifndef RH_TOKEN
+RH_TOKEN := $(call zshrc_var,RH_TOKEN)
+endif
+ifndef RHSM_ORG
+RHSM_ORG := $(call zshrc_var,RHSM_ORG)
+endif
+ifndef RHSM_ACTIVATION_KEY
+RHSM_ACTIVATION_KEY := $(call zshrc_var,RHSM_ACTIVATION_KEY)
+endif
+
+export ISO RH_USER RH_TOKEN RHSM_ORG RHSM_ACTIVATION_KEY
 
 # VARIABLE="some-value"
 
@@ -36,6 +59,7 @@ check-start-env:
 		if [ -z "$${!var}" ]; then \
 			printf "$(RED)Missing required environment variable: %s$(RESET)\n" "$$var"; \
 			echo "Usage: ISO=/path/to/rhel.iso make start-vms"; \
+			echo "When running with sudo, this makefile also tries to load exported variables from the calling user's ~/.zshrc."; \
 			echo "Optional RHSM registration: ISO=/path/to/rhel.iso RH_USER=user RH_TOKEN=token make start-vms"; \
 			echo "Optional activation key registration: ISO=/path/to/rhel.iso RHSM_ORG=org RHSM_ACTIVATION_KEY=key make start-vms"; \
 			exit 1; \
@@ -109,7 +133,7 @@ force-destroy-vms: ## Force destroy lab VMs directly with virsh when Vagrant sta
 status: ## Show Vagrant status for the lab
 	@$(VAGRANT) status
 
-ssh-%: ## SSH into a VM using Vagrant (usage: make ssh-node1)
+ssh-%: ## SSH into a VM using Vagrant (usage: make ssh-servera)
 	@$(VAGRANT) ssh $*
 
 ansible-ping: ## Run ansible ping against all hosts
