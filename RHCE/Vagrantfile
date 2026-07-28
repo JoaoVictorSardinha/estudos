@@ -116,7 +116,7 @@ Vagrant.configure("2") do |config|
             exit 1
           fi
 
-          mkdir -p /opt/rhce /var/ftp/rhel9
+          mkdir -p /opt/rhce /var/ftp/rhel9 /var/ftp/pub
 
           iso_mount_options="ro,context=system_u:object_r:public_content_t:s0"
 
@@ -157,10 +157,12 @@ Vagrant.configure("2") do |config|
           dnf install -y \
             ansible-core \
             git \
+            lvm2 \
             rhel-system-roles \
             sshpass \
             vim \
             vsftpd \
+            wget \
             python3-libselinux \
             python3-libsemanage
 
@@ -170,6 +172,23 @@ Vagrant.configure("2") do |config|
             /etc/vsftpd/vsftpd.conf
 
           systemctl enable --now vsftpd
+
+          vault_plaintext="$(mktemp)"
+          vault_password_file="$(mktemp)"
+          trap 'rm -f "${vault_plaintext}" "${vault_password_file}"' EXIT
+
+          printf '%s\n' 'salary: 50000' > "${vault_plaintext}"
+          printf '%s\n' 'cisco' > "${vault_password_file}"
+          chmod 600 "${vault_plaintext}" "${vault_password_file}"
+
+          ansible-vault encrypt \
+            "${vault_plaintext}" \
+            --output /var/ftp/pub/salary.yml \
+            --vault-password-file "${vault_password_file}"
+
+          chown root:root /var/ftp/pub/salary.yml
+          chmod 0644 /var/ftp/pub/salary.yml
+          restorecon -RFv /var/ftp/pub
 
           if systemctl is-active --quiet firewalld; then
             firewall-cmd --permanent --add-service=ftp
@@ -197,6 +216,14 @@ Vagrant.configure("2") do |config|
       else
         node.vm.provision :shell, inline: <<-'SHELL'
           set -euo pipefail
+
+          dnf install -y \
+            --disablerepo='*' \
+            --repofrompath='rhce-baseos,ftp://192.168.122.10/rhel9/BaseOS' \
+            --repofrompath='rhce-appstream,ftp://192.168.122.10/rhel9/AppStream' \
+            --setopt=rhce-baseos.gpgcheck=0 \
+            --setopt=rhce-appstream.gpgcheck=0 \
+            lvm2
 
           if command -v subscription-manager >/dev/null 2>&1 && subscription-manager identity >/dev/null 2>&1; then
             subscription-manager unregister

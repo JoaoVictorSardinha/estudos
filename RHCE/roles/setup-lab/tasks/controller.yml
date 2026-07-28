@@ -6,6 +6,7 @@
       - ansible-core
       - vim
       - bash-completion
+      - wget
     state: present
 
 - name: Create project directory
