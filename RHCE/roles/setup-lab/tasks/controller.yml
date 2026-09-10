@@ -13,8 +13,8 @@
   file:
     path: "{{ project_path }}"
     state: directory
-    owner: student
-    group: student
+    owner: admin
+    group: admin
     mode: "0755"
 
 - name: Ensure ansible.posix collection installed

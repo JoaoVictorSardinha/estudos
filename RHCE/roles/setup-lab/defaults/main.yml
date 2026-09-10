@@ -1,4 +1,4 @@
 ---
-controller_home: /home/student
+controller_home: /home/admin
 project_path: "{{ controller_home }}/ansible"
 ...

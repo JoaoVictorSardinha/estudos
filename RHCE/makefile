@@ -12,8 +12,8 @@ RED = \033[1;31m
 GREEN = \033[1;32m
 RESET = \033[0m
 
-VMS_WITH_ANSIBLE := ansible servera serverb serverc serverd servere
-VMS := servera serverb serverc serverd servere
+VMS_WITH_ANSIBLE := ansible node1 node2 node3 node4 node5
+VMS := node1 node2 node3 node4 node5
 LIBVIRT_DOMAINS := $(addprefix RHCE_,$(VMS_WITH_ANSIBLE))
 INVENTORY := inventory
 PLAYBOOK := playbooks/master.yml
@@ -133,7 +133,7 @@ force-destroy-vms: ## Force destroy lab VMs directly with virsh when Vagrant sta
 status: ## Show Vagrant status for the lab
 	@$(VAGRANT) status
 
-ssh-%: ## SSH into a VM using Vagrant (usage: make ssh-servera)
+ssh-%: ## SSH into a VM using Vagrant (usage: make ssh-node1)
 	@$(VAGRANT) ssh $*
 
 ansible-ping: ## Run ansible ping against all hosts

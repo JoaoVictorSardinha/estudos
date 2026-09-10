@@ -1,10 +1,10 @@
 LAB_MACHINES = [
   { name: "ansible", hostname: "ansible.lab.example", ip: "192.168.122.10", memory: 2048, cpus: 2 },
-  { name: "servera", hostname: "servera.lab.example.com", ip: "192.168.122.11" },
-  { name: "serverb", hostname: "serverb.lab.example.com", ip: "192.168.122.12" },
-  { name: "serverc", hostname: "serverc.lab.example.com", ip: "192.168.122.13" },
-  { name: "serverd", hostname: "serverd.lab.example.com", ip: "192.168.122.14", lvm_disk_size: "2G" },
-  { name: "servere", hostname: "servere.lab.example.com", ip: "192.168.122.15", lvm_disk_size: "1G" }
+  { name: "node1", hostname: "node1.lab.example.com", ip: "192.168.122.11" },
+  { name: "node2", hostname: "node2.lab.example.com", ip: "192.168.122.12" },
+  { name: "node3", hostname: "node3.lab.example.com", ip: "192.168.122.13" },
+  { name: "node4", hostname: "node4.lab.example.com", ip: "192.168.122.14", lvm_disk_size: "2G" },
+  { name: "node5", hostname: "node5.lab.example.com", ip: "192.168.122.15", lvm_disk_size: "1G" }
 ].freeze
 LAB_HOSTS = LAB_MACHINES.map do |machine|
   short_hostname = machine[:hostname].split(".").first
@@ -34,6 +34,21 @@ Vagrant.configure("2") do |config|
       node.vm.box = "jvms-rhel/rhel9"
       node.vm.box_version = "1.0.0"
       node.vm.hostname = machine[:hostname]
+
+      # O box "jvms-rhel/rhel9" ainda traz o usuário padrao "vagrant". O
+      # provisionamento renomeia "vagrant" -> "joao" (mesmo UID/GID e chave SSH).
+      # Enquanto esse marcador (criado no host apos o primeiro provision) nao
+      # existir, o Vagrant loga como "vagrant"; depois passa a logar como "joao".
+      joao_marker = File.join(__dir__, ".vagrant", "machines", machine[:name].to_s, "joao_renamed")
+      node.ssh.username = File.exist?(joao_marker) ? "joao" : "vagrant"
+
+      node.trigger.after :provision do |trigger|
+        trigger.info = "Registrando renomeacao vagrant -> joao (#{machine[:name]})"
+        trigger.run = {
+          inline: %(/bin/sh -c 'mkdir -p "#{File.dirname(joao_marker)}" && touch "#{joao_marker}"')
+        }
+      end
+
       node.vm.network :private_network,
                       ip: machine[:ip],
                       libvirt__network_name: "default",
@@ -67,14 +82,13 @@ Vagrant.configure("2") do |config|
         sed -i 's/^#\?PasswordAuthentication.*/PasswordAuthentication yes/' /etc/ssh/sshd_config
         systemctl restart sshd
 
-        # Cria usuário student
-        id student &>/dev/null || useradd -m student
+        # Cria usuario admin (senha: redhat, sudo sem senha)
+        id admin &>/dev/null || useradd -m admin
 
-        echo 'redhat' | passwd --stdin student
+        echo 'redhat' | passwd --stdin admin
 
-        # Sudo sem senha
-        echo 'student ALL=(ALL) NOPASSWD: ALL' > /etc/sudoers.d/student
-        chmod 440 /etc/sudoers.d/student
+        echo 'admin ALL=(ALL) NOPASSWD: ALL' > /etc/sudoers.d/admin
+        chmod 440 /etc/sudoers.d/admin
 
         sed -i '/ lab-managed$/d' /etc/hosts
         while IFS= read -r host_entry; do
@@ -195,22 +209,22 @@ Vagrant.configure("2") do |config|
             firewall-cmd --reload
           fi
 
-          mkdir -p /home/student/ansible/{roles,collections,playbooks}
+          mkdir -p /home/admin/ansible/{roles,collections,playbooks}
 
           if [ -d /usr/share/ansible/collections/ansible_collections/redhat/rhel_system_roles ]; then
-            mkdir -p /home/student/ansible/collections/ansible_collections/redhat
-            rm -rf /home/student/ansible/collections/ansible_collections/redhat/rhel_system_roles
+            mkdir -p /home/admin/ansible/collections/ansible_collections/redhat
+            rm -rf /home/admin/ansible/collections/ansible_collections/redhat/rhel_system_roles
             cp -a /usr/share/ansible/collections/ansible_collections/redhat/rhel_system_roles \
-              /home/student/ansible/collections/ansible_collections/redhat/rhel_system_roles
+              /home/admin/ansible/collections/ansible_collections/redhat/rhel_system_roles
           fi
 
-          cp -f /vagrant/playbooks/master.yml /home/student/ansible/playbooks/master.yml
-          cp -f /vagrant/playbooks/setup-lab.yml /home/student/ansible/playbooks/setup-lab.yml
+          cp -f /vagrant/playbooks/master.yml /home/admin/ansible/playbooks/master.yml
+          cp -f /vagrant/playbooks/setup-lab.yml /home/admin/ansible/playbooks/setup-lab.yml
 
-          rm -rf /home/student/ansible/roles/setup-lab
-          cp -a /vagrant/roles/setup-lab /home/student/ansible/roles/setup-lab
+          rm -rf /home/admin/ansible/roles/setup-lab
+          cp -a /vagrant/roles/setup-lab /home/admin/ansible/roles/setup-lab
 
-          chown -R student:student /home/student/ansible
+          chown -R admin:admin /home/admin/ansible
         SHELL
 
       else
@@ -231,6 +245,35 @@ Vagrant.configure("2") do |config|
           fi
         SHELL
       end
+
+      # Ultimo provisionador: renomeia o usuario padrao do box "vagrant" -> "joao"
+      # (mesmo UID/GID e chave SSH). Fica por ultimo de proposito -- se algo antes
+      # falhar, o retry ainda entra como "vagrant". Edita os arquivos diretamente
+      # para nao esbarrar na checagem "user is currently logged in" do usermod,
+      # ja que o provisionamento roda na propria sessao do "vagrant".
+      node.vm.provision :shell, name: "rename-vagrant-user", inline: <<-'SHELL'
+        set -euo pipefail
+
+        if getent passwd vagrant >/dev/null && ! getent passwd joao >/dev/null; then
+          sed -i 's/^vagrant:/joao:/'              /etc/passwd /etc/shadow
+          sed -i 's#:/home/vagrant:#:/home/joao:#' /etc/passwd
+          sed -i 's/vagrant/joao/g'                /etc/group /etc/gshadow
+          # sed -i recria os arquivos -- restaura os contextos SELinux
+          restorecon -F /etc/passwd /etc/shadow /etc/group /etc/gshadow 2>/dev/null || true
+          if [ -d /home/vagrant ]; then
+            mv /home/vagrant /home/joao
+          fi
+          if [ -f /etc/sudoers.d/vagrant ]; then
+            sed 's/vagrant/joao/g' /etc/sudoers.d/vagrant > /etc/sudoers.d/joao
+            rm -f /etc/sudoers.d/vagrant
+            chmod 440 /etc/sudoers.d/joao
+          fi
+          restorecon -RF /home/joao 2>/dev/null || true
+          echo "usuario 'vagrant' renomeado para 'joao'"
+        else
+          echo "renomeacao vagrant->joao ja aplicada (ou 'vagrant' ausente)"
+        fi
+      SHELL
 
     end
   end
