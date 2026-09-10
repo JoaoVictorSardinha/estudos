@@ -1,4 +1,4 @@
-.PHONY: help check-start-env attach-iso start-vms start-ansible provision shutdown-vms destroy-vm destroy-vms force-destroy force-destroy-vms status ansible-ping ansible-play
+.PHONY: help check-start-env attach-iso start-vms start-ansible provision shutdown-vms destroy-vm destroy-vms force-destroy force-destroy-vms status
 
 help: ## Show help
 	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## / {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -15,8 +15,6 @@ RESET = \033[0m
 VMS_WITH_ANSIBLE := ansible node1 node2 node3 node4 node5
 VMS := node1 node2 node3 node4 node5
 LIBVIRT_DOMAINS := $(addprefix RHCE_,$(VMS_WITH_ANSIBLE))
-INVENTORY := inventory
-PLAYBOOK := playbooks/master.yml
 VAGRANT := LIBVIRT_DEFAULT_URI=qemu:///system VAGRANT_DEFAULT_PROVIDER=libvirt vagrant
 VIRSH := virsh -c qemu:///system
 ANSIBLE_DOMAIN := RHCE_ansible
@@ -135,9 +133,3 @@ status: ## Show Vagrant status for the lab
 
 ssh-%: ## SSH into a VM using Vagrant (usage: make ssh-node1)
 	@$(VAGRANT) ssh $*
-
-ansible-ping: ## Run ansible ping against all hosts
-	ansible -i $(INVENTORY) all -m ping
-
-ansible-play: ## Run main Ansible playbook
-	ansible-playbook -i $(INVENTORY) $(PLAYBOOK)

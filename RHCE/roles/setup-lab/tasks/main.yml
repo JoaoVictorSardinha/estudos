@@ -1,4 +1,0 @@
----
-- name: Include setup-lab task set
-  include_tasks: "{{ setup_lab_stage }}.yml"
-...

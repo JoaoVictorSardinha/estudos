@@ -208,23 +208,6 @@ Vagrant.configure("2") do |config|
             firewall-cmd --permanent --add-service=ftp
             firewall-cmd --reload
           fi
-
-          mkdir -p /home/admin/ansible/{roles,collections,playbooks}
-
-          if [ -d /usr/share/ansible/collections/ansible_collections/redhat/rhel_system_roles ]; then
-            mkdir -p /home/admin/ansible/collections/ansible_collections/redhat
-            rm -rf /home/admin/ansible/collections/ansible_collections/redhat/rhel_system_roles
-            cp -a /usr/share/ansible/collections/ansible_collections/redhat/rhel_system_roles \
-              /home/admin/ansible/collections/ansible_collections/redhat/rhel_system_roles
-          fi
-
-          cp -f /vagrant/playbooks/master.yml /home/admin/ansible/playbooks/master.yml
-          cp -f /vagrant/playbooks/setup-lab.yml /home/admin/ansible/playbooks/setup-lab.yml
-
-          rm -rf /home/admin/ansible/roles/setup-lab
-          cp -a /vagrant/roles/setup-lab /home/admin/ansible/roles/setup-lab
-
-          chown -R admin:admin /home/admin/ansible
         SHELL
 
       else
