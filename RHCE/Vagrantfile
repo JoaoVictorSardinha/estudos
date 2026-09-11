@@ -261,6 +261,11 @@ EOF
 
           chown root:root /var/ftp/pub/salary.yml
           chmod 0644 /var/ftp/pub/salary.yml
+
+          printf '%s\n' 'HOST=' 'MEMORY=' 'BIOS=' 'VDA_DISK_SIZE=' 'VDB_DISK_SIZE=' > /var/ftp/pub/hwreport.txt
+          chown root:root /var/ftp/pub/hwreport.txt
+          chmod 0644 /var/ftp/pub/hwreport.txt
+
           restorecon -RFv /var/ftp/pub
 
           if systemctl is-active --quiet firewalld; then
